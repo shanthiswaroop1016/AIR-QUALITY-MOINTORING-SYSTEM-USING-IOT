@@ -1,0 +1,114 @@
+
+#include "thingProperties.h"
+#include "DHT.h"
+
+#define DHTpin 4 // Connect to D4 pin on NodeMCU
+#define DHTTYPE DHT11
+
+DHT dht(DHTpin, DHTTYPE);
+int sensor = A0; // Analog pin for air quality sensor
+
+#define RL_VALUE 10 // Load resistance in kilo ohms
+#define RO_CLEAN_AIR_FACTOR 9.83 // Clean air factor
+
+void setup() {
+  // Initialize serial and wait for port to open:
+  Serial.begin(9600);
+  // This delay gives the chance to wait for a Serial Monitor without blocking if none is found
+  delay(1500);
+
+  // Defined in thingProperties.h
+  initProperties();
+
+  // Connect to Arduino IoT Cloud
+  ArduinoCloud.begin(ArduinoIoTPreferredConnection);
+
+  /*
+     The following function allows you to obtain more information
+     related to the state of network and IoT Cloud connection and errors
+     the higher number the more granular information you’ll get.
+     The default is 0 (only errors).
+     Maximum is 4
+  */
+  setDebugMessageLevel(2);
+  ArduinoCloud.printDebugInfo();
+}
+
+float calculatePPM(int rawADC) {
+  float VRL = (rawADC / 1024.0) * 5.0; // Convert ADC value to voltage
+  float RS = ((5.0 - VRL) / VRL) * RL_VALUE; // Calculate sensor resistance
+  float ratio = RS / RO_CLEAN_AIR_FACTOR; // Calculate ratio
+  // Use appropriate formula or lookup table to convert ratio to ppm
+  // This example uses a simple power function approximation
+  float ppm = pow((ratio / 10.0), -1.5); // Example formula
+  return ppm;
+}
+
+void loop() {
+  ArduinoCloud.update();
+
+  float hm = dht.readHumidity();
+  Serial.print("Humidity: ");
+  Serial.println(hm);
+
+  float temp = dht.readTemperature();
+  Serial.print("Temperature: ");
+  Serial.println(temp);
+
+  int airqualityvalue = analogRead(sensor);
+  Serial.print("Air Quality Value: ");
+  Serial.println(airqualityvalue);
+
+  float ppm = calculatePPM(airqualityvalue);
+  Serial.print("Air Quality (ppm): ");
+  Serial.println(ppm);
+
+  hUMIDITY = hm;
+  tEMPERATURE = temp;
+  aIRQUALITY = airqualityvalue;
+
+  mESSAGE = "Temperature = " + String(tEMPERATURE) + " Humidity = " + String(hUMIDITY) + " Air Quality (ppm) = " + String(ppm);
+
+  if (ppm <= 50) {
+    Serial.println("Air Quality: Good");
+  } else if (ppm <= 100) {
+    Serial.println("Air Quality: Moderate");
+  } else if (ppm <= 200) {
+    Serial.println("Air Quality: Poor");
+  } else {
+    Serial.println("Air Quality: Very Poor");
+  }
+}
+
+/*
+  Since TEMPERATURE is READ_WRITE variable, onTEMPERATUREChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onTEMPERATUREChange()  {
+  // Add your code here to act upon TEMPERATURE change
+}
+
+/*
+  Since HUMIDITY is READ_WRITE variable, onHUMIDITYChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onHUMIDITYChange()  {
+  // Add your code here to act upon HUMIDITY change
+}
+
+/*
+  Since AIRQUALITY is READ_WRITE variable, onAIRQUALITYChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onAIRQUALITYChange()  {
+  // Add your code here to act upon AIRQUALITY change
+}
+
+/*
+  Since MESSAGE is READ_WRITE variable, onMESSAGEChange() is
+  executed every time a new value is received from IoT Cloud.
+*/
+void onMESSAGEChange()  {
+  // Add your code here to act upon MESSAGE change
+}
+	
